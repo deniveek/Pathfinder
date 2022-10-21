@@ -175,7 +175,7 @@ class Window(QWidget):
     def __init__(self):
         super(Window, self).__init__()
         self.setWindowTitle("pathfinder")
-        self.setFixedSize(QSize(800, 640))
+        self.setFixedSize(QSize(800, 600))
         self.world = Map()
         self.state = 0
         self.line = []
@@ -200,6 +200,8 @@ class Window(QWidget):
             else:
                 pos = self.qtpoint2ndarray(event.pos())
                 self.world.add_destination(pos)
+                pathfinder = RRT(self.world.robot_pos, self.world.destination, self.world.boundaries)
+                self.world.path = pathfinder.bidirRRT()
 
     def mouseReleaseEvent(self, event):
         if event.button() == Qt.LeftButton:
@@ -212,14 +214,6 @@ class Window(QWidget):
     def mouseMoveEvent(self, event):
         if self.state == 1:
             self.line.append(event.pos())
-        self.update()
-
-    def keyPressEvent(self, event):
-        if event.key() == Qt.Key_F:
-            #print(self.world.is_visible(self.world.boundaries, self.world.robot_pos, self.world.destination))
-            pathfinder = RRT(self.world.robot_pos, self.world.destination, self.world.boundaries)
-            self.world.path = pathfinder.bidirRRT()
-            #print(self.world.path)
         self.update()
 
     def paintEvent(self, event):
