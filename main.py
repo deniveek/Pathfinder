@@ -90,7 +90,7 @@ class Tree:
 
 
 class RRT:
-    def __init__(self, start, goal, obstacles, vis, bounds=(800, 600), u=30, k=3000):
+    def __init__(self, start, goal, obstacles, vis, bounds=(800, 600), u=10, k=3000):
         self.u = u
         self.k = k
         self.bounds = bounds
@@ -116,6 +116,7 @@ class RRT:
 
     def bidirRRT(self):
         self.vis.world.trees = []
+        self.vis.world.path = []
         print("started bidirectional RRT")
         self.trees.update({'T_a': Tree(Vertex(self.x_start)), 'T_b': Tree(Vertex(self.x_goal))})
         active_tree = 'T_a'
@@ -236,7 +237,7 @@ class Window(QWidget):
             for edge in self.world.trees:
                 qp.drawPolyline(QPoint(edge[0][0], edge[0][1]), QPoint(edge[1][0], edge[1][1]))
         if self.world.path is not None:
-            qp.setPen(Qt.darkGreen)
+            qp.setPen(Qt.green)
             for edge in self.world.path:
                 qp.drawPolyline(QPoint(edge[0][0], edge[0][1]), QPoint(edge[1][0], edge[1][1]))
 
