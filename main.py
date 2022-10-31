@@ -22,6 +22,10 @@ class Map:
         self.destination = None
         self.boundaries = []
         self.path = None
+        self.trees = []
+
+    def add_line(self, p1, p2):
+        self.trees.append([p1, p2])
 
     def add_wall(self, wall):
         wall = RDP.DouglasPeucker(wall)
@@ -68,10 +72,9 @@ class Vertex:
 
 
 class Edge:
-    def __init__(self, p1, p2, l):
+    def __init__(self, p1, p2):
         self.p1 = p1
         self.p2 = p2
-        self.length = l
 
 
 class Tree:
@@ -82,16 +85,17 @@ class Tree:
     def add_vertex(self, pos, parent=None):
         self.vertices.append(Vertex(pos, parent))
 
-    def add_edge(self, p1, p2, l):
-        self.edges.append(Edge(p1, p2, l))
+    def add_edge(self, p1, p2):
+        self.edges.append(Edge(p1, p2))
 
 
 class RRT:
-    def __init__(self, start, goal, obstacles, bounds=(800, 640), u=30, k=3000):
+    def __init__(self, start, goal, obstacles, vis, bounds=(800, 600), u=30, k=3000):
         self.u = u
         self.k = k
         self.bounds = bounds
         self.obstacles = obstacles
+        self.vis = vis
         self.rng = np.random.default_rng(12345)
         self.trees = {}
         self.x_start = start
@@ -111,6 +115,7 @@ class RRT:
         return self.trees['start']
 
     def bidirRRT(self):
+        self.vis.world.trees = []
         print("started bidirectional RRT")
         self.trees.update({'T_a': Tree(Vertex(self.x_start)), 'T_b': Tree(Vertex(self.x_goal))})
         active_tree = 'T_a'
@@ -120,8 +125,6 @@ class RRT:
             print(f"iteration number {i}, sampling: {x_rand}")
             if not self.extend(self.trees[active_tree], x_rand) == "Trapped":
                 if self.extend(self.trees[second_tree], self.x_new) == "Reached":
-                    #print(f"{self.trees[active_tree].vertices[-1].pos}, {self.trees[second_tree].vertices[-1].pos}")
-                    #print('reached')
                     return self.full_path(self.trees[active_tree], self.trees[second_tree])
             second_tree = active_tree
             active_tree = 'T_a' if active_tree == 'T_b' else 'T_b'
@@ -129,13 +132,11 @@ class RRT:
 
     def extend(self, tree, x):
         x_near = self.nearest_neighbor(tree, x)
-        #print(f"found nearest neighbor: {x_near.pos}")
         try:
             self.x_new, u_new = self.new_state(x, x_near.pos)
-            #print(f"found new state: {self.x_new}")
             tree.add_vertex(self.x_new, x_near)
-            #tree.add_edge(x_near, self.x_new, u_new)
-            #print("new state added to the tree")
+            self.vis.world.add_line(self.x_new, x_near.pos)
+            self.vis.repaint()
             return "Reached" if np.array_equal(self.x_new, x) else "Advanced"
         except:
             return "Trapped"
@@ -151,7 +152,6 @@ class RRT:
 
     @staticmethod
     def nearest_neighbor(tree, x):
-        #print(f"here {tree.vertices}, x: {x}")
         return tree.vertices[np.argmin(np.array([np.linalg.norm(x - v.pos) for v in tree.vertices]))]
 
     @staticmethod
@@ -161,13 +161,11 @@ class RRT:
         while next_v.parent is not None:
             path_a.append(np.array([next_v.pos, next_v.parent.pos]))
             next_v = next_v.parent
-        #print(path_a)
         return path_a
 
     def full_path(self, T_a, T_b):
         path1 = self.path(T_a)
         path2 = self.path(T_b)
-        #print("path ready")
         return path1 + path2
 
 
@@ -200,7 +198,7 @@ class Window(QWidget):
             else:
                 pos = self.qtpoint2ndarray(event.pos())
                 self.world.add_destination(pos)
-                pathfinder = RRT(self.world.robot_pos, self.world.destination, self.world.boundaries)
+                pathfinder = RRT(self.world.robot_pos, self.world.destination, self.world.boundaries, self)
                 self.world.path = pathfinder.bidirRRT()
 
     def mouseReleaseEvent(self, event):
@@ -233,6 +231,10 @@ class Window(QWidget):
         if self.world.destination is not None:
             qp.setPen(QColor(Qt.magenta))
             qp.drawEllipse(QPoint(self.world.destination[0], self.world.destination[1]), 5, 5)
+        if self.world.trees is not None:
+            qp.setPen(Qt.gray)
+            for edge in self.world.trees:
+                qp.drawPolyline(QPoint(edge[0][0], edge[0][1]), QPoint(edge[1][0], edge[1][1]))
         if self.world.path is not None:
             qp.setPen(Qt.darkGreen)
             for edge in self.world.path:
